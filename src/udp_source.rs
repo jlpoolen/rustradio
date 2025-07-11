@@ -25,6 +25,7 @@ use socket2::{Socket, Domain, Type, Protocol};
 
 //use rustradio_macros::rustradio;
 use crate::block::{Block, BlockRet, BlockEOF, BlockName};
+//use crate::circular_buffer::BufferReader;
 use crate::stream::{ReadStream, WriteStream};
 use crate::{Result, Sample};
 
@@ -49,13 +50,15 @@ pub enum MyError {
     Other(String),
 }
 // https://doc.rust-lang.org/std/net/struct.UdpSocket.html does not break out port
-// so bind_addr must always include port, you do not isolate address from port
-// Likewise, for multicast_addr you have an IP and the port
-// But for iface, you have just the address (used to register your subscription with server)
+// so bind_addr must always include port.  However, we're using socket2 and there
+// are possible scenarios where you might have differing port numbers, so we'll break
+// out port for bind & multicast and then join address and port as needed further on
 #[derive(Debug, Clone)]
 pub struct UdpConfig<T: Sample> {
-    pub bind_addr: String,          // e.g. "0.0.0.0:5000"
-    pub multicast_addr: String,     // e.g. "239.192.0.1:5000" = IP + Port 
+    pub bind_addr: String,          // e.g. "0.0.0.0"
+    pub bind_port: u16,             // Port: 5000
+    pub multicast_addr: String,     // e.g. "239.192.0.1" = IP + Port 
+    pub multicast_port: u16,        // Port: 5000
     pub iface_addr: Option<String>, // e.g. Some("192.168.1.X") = IP of current client
     pub reuse: Option<bool>,        // single or multicast
     pub ip_version: IpVersion,         
@@ -95,12 +98,14 @@ pub struct UdpSourceBuilder<T: Sample> {
 
 
 impl<T: Sample + std::fmt::Debug> UdpSourceBuilder<T> {
-    pub fn new(bind_addr: &str, multicast_addr: &str) -> Self {
+    pub fn new(bind_addr: &str, bind_port: u16, multicast_addr: &str, multicast_port: u16) -> Self {
         
         Self {
             config: UdpConfig {
                 bind_addr: bind_addr.to_string(),
+                bind_port: bind_port,
                 multicast_addr: multicast_addr.to_string(),
+                multicast_port: multicast_port,
                 iface_addr: None,
                 reuse: Some(true),
                 ip_version: IpVersion::V4,   // or infer from bind_addr
@@ -144,19 +149,25 @@ impl<T: Sample + std::fmt::Debug> UdpSourceBuilder<T> {
             let multi: Ipv4Addr = self
                 .config
                 .multicast_addr
-                .parse()
-                .context("Invalid multicast address")?;
+                .split(':')
+                .next()
+                .ok_or_else(|| anyhow::anyhow!("Missing multicast IP"))?
+                .parse()?;
 
-            let iface: Ipv4Addr = self
+            let iface_str = self
                 .config
                 .iface_addr
-                .as_deref()
-                .unwrap_or("0.0.0.0")
-                .parse()
-                .context("Invalid interface address")?;
+                .as_deref() // converts Option<String> to Option<&str>
+                .ok_or_else(|| anyhow::anyhow!("Missing iface IP"))?;
+
+            let iface_ip = iface_str
+                .split(':')
+                .next()
+                .ok_or_else(|| anyhow::anyhow!("iface_addr has invalid format"))?
+                .parse::<Ipv4Addr>()?;
 
             socket
-                .join_multicast_v4(&multi, &iface)
+                .join_multicast_v4(&multi, &iface_ip)
                 .context("Failed to join multicast group")?;
         }
 
@@ -259,14 +270,80 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
-    #[test]
-    fn test_receives_udp() -> Result<()> {
-        // 1. Launch a thread that sends test data via UDP
-        // 2. Instantiate UdpSourceBuilder and build the block
-        // 3. Call work() a few times
-        // 4. Read samples from the ReadStream<T>
-        // 5. Assert expected results
+    use anyhow::Result;  // to allow test_udp_source_receives_data()
+    use crate::udp_source;
+        #[test]
+    //fn test_udp_source_receives_data() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_udp_source_receives_data() -> Result<()> {
+        let sender = UdpSocket::bind("127.0.0.1:0")?;
+        sender.send_to(&[0xAB], "127.0.0.1:6000")?;
+        // allow some time for sender to ramp up
+        thread::sleep(Duration::from_millis(5)); // Wait for socket to receive
+
+        let (mut src, rx) = UdpSourceBuilder::<u8>::new("127.0.0.1", 6000, 
+        "239.0.0.1", 6000)
+            .iface_addr("127.0.0.1")
+            .reuse_addr(true)
+            .build()?;
+
+        src.work().unwrap();
+
+        let (reader, _tags) = rx.read_buf()?; // You were here
+        assert_eq!(reader[0], 0xAB);
 
         Ok(())
     }
+#[test]
+fn test_udp_source_receives_incrementing_bytes() -> anyhow::Result<()> {
+    use std::{net::UdpSocket, thread, time::Duration};
+    use std::sync::atomic::{AtomicU8, Ordering};
+    use std::sync::Arc;
+
+    // Port shared by both sender and receiver
+    const TEST_PORT: u16 = 6000;
+
+    // Shared counter for incrementing byte values
+    let counter = Arc::new(AtomicU8::new(0));
+    let counter_clone = counter.clone();
+
+    // Spawn continuous sender
+    thread::spawn(move || {
+        let sender = UdpSocket::bind("127.0.0.1:0").unwrap();
+        loop {
+            let value = counter_clone.fetch_add(1, Ordering::Relaxed);
+            let _ = sender.send_to(&[value], &format!("127.0.0.1:{TEST_PORT}"));
+            thread::sleep(Duration::from_millis(10));
+        }
+    });
+
+    // Give sender a moment to start
+    thread::sleep(Duration::from_secs(1));
+
+    // Create the UDP source
+    let (mut src, rx) = UdpSourceBuilder::<u8>::new("0.0.0.0", TEST_PORT, "239.0.0.1", TEST_PORT)
+        .iface_addr("127.0.0.1")
+        .reuse_addr(true)
+        .build()?;
+
+    // Try up to N rounds to get 2 valid samples
+    // let mut previous = None;
+    //let mut previous: std::option::Option = None;
+
+    for _ in 0..20 {
+        src.work()?;
+        let (reader, _) = rx.read_buf()?;
+        if reader.len() >= 2 {
+            let a = reader[0];
+            let b = reader[1];
+            assert_eq!(b.wrapping_sub(a), 1, "Values: a = {a}, b = {b}");
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+
+    Err(anyhow::anyhow!("Failed to receive 2 sequential values"))
 }
+
+
+}
+
