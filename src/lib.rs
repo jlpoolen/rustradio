@@ -215,6 +215,7 @@ pub mod window;
 
 #[cfg(feature = "async")]
 pub mod agraph;
+pub mod udp_source;
 
 /// Float type used. Usually f32, but not guaranteed.
 pub type Float = f32;

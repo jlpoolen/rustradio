@@ -38,6 +38,10 @@ thiserror = "2.0"
 tokio = { version = "1.44", optional = true, features = ["full"] }
 async-trait = "0.1"
 nix = { version = "0.30.1", optional = true, features = ["term"] }
+socket2 = { version = "0.5", features = ["all"] }
+anyhow = "1.0"
+
+
 # System fftw has been many times faster for me than not. Maybe because the C
 # code is not compiled with the right options, like -march=native?
 [dependencies.fftw]
@@ -73,7 +77,8 @@ fast-math = ["dep:fast-math"]
 audio = ["dep:cpal"]
 fftw = ["dep:fftw"]
 async = ["dep:tokio"]
-tokio-unstable = ["tokio/tracing"]
+#logging = ["tracing", "tracing-subscriber"]
+#tokio-unstable = ["tokio/tracing", "logging"]
 nix = ["dep:nix"]
 
 [[example]]
@@ -103,6 +108,9 @@ required-features = ["audio"]
 [[example]]
 name = "airspy_am_decode"
 required-features = ["audio"]
+
+[[example]]
+name = "test_udp"
 
 [profile.release]
 # debug = true
