@@ -28,6 +28,7 @@ use crate::block::{Block, BlockRet, BlockEOF, BlockName};
 //use crate::circular_buffer::BufferReader;
 use crate::stream::{ReadStream, WriteStream};
 use crate::{Result, Sample};
+use tracing::info;
 
 
 
@@ -169,6 +170,14 @@ impl<T: Sample + std::fmt::Debug> UdpSourceBuilder<T> {
             socket
                 .join_multicast_v4(&multi, &iface_ip)
                 .context("Failed to join multicast group")?;
+            info!(
+                "Joined multicast group: {} on iface: {} (port: {}), multicast mode: {}",
+                multi,
+                iface_ip,
+                self.config.multicast_port,
+                !self.config.multicast_addr.is_empty()
+            );
+
         }
 
         if self.config.reuse.unwrap_or(false) {
@@ -271,7 +280,7 @@ mod tests {
     use std::time::Duration;
 
     use anyhow::Result;  // to allow test_udp_source_receives_data()
-    use crate::udp_source;
+    
         #[test]
     //fn test_udp_source_receives_data() -> Result<(), Box<dyn std::error::Error>> {
     fn test_udp_source_receives_data() -> Result<()> {
@@ -299,6 +308,8 @@ fn test_udp_source_receives_incrementing_bytes() -> anyhow::Result<()> {
     use std::sync::atomic::{AtomicU8, Ordering};
     use std::sync::Arc;
 
+    let _ = tracing_subscriber::fmt::try_init();
+
     // Port shared by both sender and receiver
     const TEST_PORT: u16 = 6000;
 
@@ -311,8 +322,8 @@ fn test_udp_source_receives_incrementing_bytes() -> anyhow::Result<()> {
         let sender = UdpSocket::bind("127.0.0.1:0").unwrap();
         loop {
             let value = counter_clone.fetch_add(1, Ordering::Relaxed);
-            let _ = sender.send_to(&[value], &format!("127.0.0.1:{TEST_PORT}"));
-            thread::sleep(Duration::from_millis(10));
+            let _ = sender.send_to(&[value], &format!("239.0.0.1:{TEST_PORT}"));
+            //thread::sleep(Duration::from_millis(10));
         }
     });
 
@@ -321,7 +332,7 @@ fn test_udp_source_receives_incrementing_bytes() -> anyhow::Result<()> {
 
     // Create the UDP source
     let (mut src, rx) = UdpSourceBuilder::<u8>::new("0.0.0.0", TEST_PORT, "239.0.0.1", TEST_PORT)
-        .iface_addr("127.0.0.1")
+        .iface_addr("192.168.1.2")
         .reuse_addr(true)
         .build()?;
 
@@ -329,7 +340,8 @@ fn test_udp_source_receives_incrementing_bytes() -> anyhow::Result<()> {
     // let mut previous = None;
     //let mut previous: std::option::Option = None;
 
-    for _ in 0..20 {
+    //for _ in 0..200 {
+    loop {
         src.work()?;
         let (reader, _) = rx.read_buf()?;
         if reader.len() >= 2 {
@@ -338,7 +350,7 @@ fn test_udp_source_receives_incrementing_bytes() -> anyhow::Result<()> {
             assert_eq!(b.wrapping_sub(a), 1, "Values: a = {a}, b = {b}");
             return Ok(());
         }
-        thread::sleep(Duration::from_millis(50));
+        thread::sleep(Duration::from_millis(10));
     }
 
     Err(anyhow::anyhow!("Failed to receive 2 sequential values"))
