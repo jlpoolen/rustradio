@@ -148,6 +148,16 @@ impl<T: Sample + std::fmt::Debug> UdpSourceBuilder<T> {
         let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))
             .context("Failed to create UDP socket")?;
 
+        if self.config.reuse.unwrap_or(false) {
+            socket
+                .set_reuse_address(true)
+                .context("Failed to set SO_REUSEADDR")?;
+            #[cfg(target_os = "linux")]
+            socket
+                .set_reuse_port(true)
+                .context("Failed to set SO_REUSEPORT")?;
+            info!("socket reuse address and port set to true.");
+        }
         // Join multicast group if specified
         if !self.config.multicast_addr.is_empty() {
             let multi: Ipv4Addr = self
@@ -201,11 +211,7 @@ impl<T: Sample + std::fmt::Debug> UdpSourceBuilder<T> {
 
         }
         
-        if self.config.reuse.unwrap_or(false) {
-            socket
-                .set_reuse_address(true)
-                .context("Failed to set reuse address")?;
-        }
+
 
         socket
             //.set_nonblocking()
