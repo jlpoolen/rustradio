@@ -727,7 +727,7 @@ fn test_2_udp_source_receives_incrementing_bytes() -> anyhow::Result<()> {
     }
 }
 
-/*
+/*  Test 3 
 Command to run this test:
 
       date; timeout 60 cargo test test_3_udp_source_receives_data_subscribe_first --features logging --lib |nl
@@ -761,7 +761,7 @@ Command to run this test:
 #[test]
 fn test_3_udp_source_receives_data_subscribe_first() -> Result<()> {
     let _ = tracing_subscriber::fmt::try_init();
-    let _test_name = "Test 3";
+    let test_name = "Test 3";
     use std::{net::UdpSocket, thread, time::Duration};
 
     // --- CONFIGURATION PARAMETERS ---
@@ -816,25 +816,25 @@ fn test_3_udp_source_receives_data_subscribe_first() -> Result<()> {
     // let (mut src, rx) = builder.build()?;
     // END proposed replacement
 
-    println!("🧪 rx address from test = {:p}", &rx as *const _);
+    info!("[{}] 🧪 rx address from test = {:p}", test_name, &rx as *const _);
 
-    println!("test's socket dst ptr  = {:p}", &src.dst);
-    println!("test's socket rx ptr   = {:p}  --- this should match fn work()'s dst ptr which was being written to", &rx);
-    println!("UdpSourceBuilder initialized. Waiting 200ms for multicast join...");
+    info!("[{}] test's socket dst ptr  = {:p}", test_name, &src.dst);
+    info!("[{}] test's socket rx ptr   = {:p}  --- this should match fn work()'s dst ptr which was being written to", test_name, &rx);
+    info!("[{}] UdpSourceBuilder initialized. Waiting 200ms for multicast join...", test_name);
     thread::sleep(Duration::from_millis(200));
 
     // --- STEP 2: Send multicast packet ---
     let sender = UdpSocket::bind((interface_ip, 0))?;
     let dest_addr = format!("{}:{}", multicast_addr, multicast_port);
     let sent = sender.send_to(&test_payload, &dest_addr)?;
-    println!("[UDP Broadcaster] Sent {} byte(s) to {}", sent, dest_addr);
+    info!("[{}] Sent {} byte(s) to {}", test_name, sent, dest_addr);
     // The broadcast can be confirmed in a separate console where socat had been started prior to this program.
 
     // --- STEP 3: Retry read loop ---
     let mut received = false;
     for attempt in 0..max_attempts {
         thread::sleep(Duration::from_millis(delay_ms));
-        println!("Attempt {}: calling src.work()", attempt + 1);
+        info!("[{}] Attempt {}: calling src.work()", test_name, attempt + 1);
         src.work().unwrap();
 
         // ORIGINAL let (reader, _tags) = rx.read_buf()?;
@@ -856,9 +856,9 @@ fn test_3_udp_source_receives_data_subscribe_first() -> Result<()> {
         }
         let data = reader.slice();
 
-        println!("[Test Reader]  Received {} byte(s)", data.len());
+        info!("[{}]  Received {} byte(s)", test_name, data.len());
         if !data.is_empty() {
-            println!("[Test Reader]   Received data (ASCII):");
+            info!("[{}]   Received data (ASCII):", test_name,);
             // for chunk in data.chunks(16) {
             //     for &b in chunk {
             //         print!("{}", if (0x20..=0x7E).contains(&b) { b as char } else { '.' });
