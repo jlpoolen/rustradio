@@ -927,6 +927,8 @@ fn test_4_outside_udp_server()-> Result<()> {
     let _ = tracing_subscriber::fmt::try_init();  // Activate tracing
     use std::thread;
     use std::time::Duration;
+    use crate::ComplexI16;
+
 
     // --- CONFIGURATION PARAMETERS ---
     let foreign_addr = "239.192.0.1";
@@ -961,7 +963,7 @@ fn test_4_outside_udp_server()-> Result<()> {
     //     .build()
     //     .unwrap_or_else(|e| panic!("❌ Failed to build UdpSourceBuilder: {e}"));
 
-    let (mut src, rx) = UdpSourceBuilder::<u8>::new(
+    let (mut src, rx) = UdpSourceBuilder::<ComplexI16>::new(
     bind_addr, bind_port, 
     multicast_addr, multicast_port)
     .iface_addr(interface_ip)
