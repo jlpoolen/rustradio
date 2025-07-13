@@ -609,7 +609,6 @@ impl Sample for Complex {
         ret
     }
 }
-
 impl Sample for Float {
     type Type = Float;
     fn size() -> usize {
@@ -671,6 +670,34 @@ impl Sample for i32 {
     }
     fn serialize(&self) -> Vec<u8> {
         i32::to_le_bytes(*self).to_vec()
+    }
+}
+// for AirSpy2 which send i16 for I & Q, hence 32 its per sample
+pub type ComplexI16 = num_complex::Complex<i16>;
+
+//use num_complex::Complex as ComplexI16;
+
+impl Sample for ComplexI16 {
+    type Type = ComplexI16;
+
+    fn size() -> usize {
+        std::mem::size_of::<i16>() * 2
+    }
+
+    fn parse(data: &[u8]) -> Result<Self::Type> {
+        if data.len() < Self::size() {
+            return Err(Error::msg("not enough bytes for Complex<i16>"));
+        }
+        let i = i16::from_le_bytes(data[0..2].try_into()?);
+        let q = i16::from_le_bytes(data[2..4].try_into()?);
+        Ok(ComplexI16::new(i, q))
+    }
+
+    fn serialize(&self) -> Vec<u8> {
+        let mut ret = Vec::new();
+        ret.extend(&self.re.to_le_bytes());
+        ret.extend(&self.im.to_le_bytes());
+        ret
     }
 }
 
