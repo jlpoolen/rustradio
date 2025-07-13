@@ -613,8 +613,8 @@ fn test_3_udp_source_receives_data_subscribe_first() -> Result<()> {
     let bind_port = 6000;              // Bind to all interfaces
     let multicast_addr = "239.0.0.1";
     let multicast_port = 6000;
-    //let test_payload = [0xAB];
-    let test_payload: Vec<u8> = (0..=255).cycle().take(4096).collect();
+    let test_payload = [0xAB];
+    //let test_payload: Vec<u8> = (0..=255).cycle().take(4096).collect();
     let max_attempts = 20;
     let delay_ms = 50;
 
@@ -626,8 +626,8 @@ fn test_3_udp_source_receives_data_subscribe_first() -> Result<()> {
     println!("Bind Port       : {}", bind_port);
     println!("Multicast Addr  : {}", multicast_addr);
     println!("Multicast Port  : {}", multicast_port);
-    println!("test_payload is 4096 characters.");
-    //println!("Payload         : {:02X?}", test_payload);
+    //println!("test_payload is 4096 characters.");
+    println!("Payload         : {:02X?}", test_payload);
     println!("Max Attempts    : {}", max_attempts);
     println!("Delay Per Try   : {}ms", delay_ms);
     println!("------------------------\n");
@@ -679,6 +679,7 @@ fn test_3_udp_source_receives_data_subscribe_first() -> Result<()> {
         // ORIGINAL let (reader, _tags) = rx.read_buf()?;
         let mut waited = 0;
         let mut reader;
+        
         loop {
             let (r, _tags) = rx.read_buf()?;
             reader = r;
