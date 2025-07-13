@@ -111,9 +111,6 @@ required-features = ["audio"]
 name = "airspy_am_decode"
 required-features = ["audio"]
 
-[[example]]
-name = "test_udp"
-
 [profile.release]
 # debug = true
 
