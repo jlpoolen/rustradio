@@ -13,7 +13,7 @@ To build and pick up tracing:
 use std::net::AddrParseError;
 use std::net::Ipv4Addr;
 use std::net::UdpSocket;
-
+use tracing::{info, debug, error, trace};
 
 use anyhow::{Context};
 
@@ -32,7 +32,6 @@ use crate::stream::{ReadStream, WriteStream, Tag};
 use crate::{Result, Sample};
 
 
-use tracing::{info};
 
 
 #[derive(Debug, Clone)]
@@ -291,7 +290,7 @@ where
                 Ok(n) => {
                     //println!("📐 T::size() = {}", T::size());               // additional
                     //println!("📐 Received n = {}", n);                      // additional
-                    println!("[UdpSource Block.work] 📐 n % T::size() = {}", n % T::size());       // additional
+                    trace!("[UdpSource Block.work] 📐 n % T::size() = {}", n % T::size());       // additional
                     let chunked = self.buffer[..n].chunks_exact(T::size()); 
                     let remainder = chunked.remainder();
                     info!("[UdpSource Block.work] Received {} bytes", n);
@@ -307,7 +306,7 @@ where
 
                         for (i, chunk) in chunked.enumerate() {
                             if i >= max_output_samples {
-                                warn!("Output stream buffer full at {}", i);
+                                //debug!("Output stream buffer full at {}", i);
                                 break;
                             }
 
@@ -335,7 +334,7 @@ where
                         }
                         count = written;
                     } else {
-                        println!("[UdpSource Block.work] ❌ Could not get write buffer");
+                        error!("[UdpSource Block.work] ❌ Could not get write buffer");
                     }
                     info!("[UdpSource Block.work] Parsed {} valid samples", count);
                     if !remainder.is_empty() {
@@ -348,7 +347,7 @@ where
                 }
                 Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                     // No data available (non-blocking)
-                    warn!("[UdpSource Block.work] No datagram available yet");
+                    //warn!("[UdpSource Block.work] No datagram available yet");
                 }
                 //Err(e) => {
                 //    return Err(anyhow::anyhow!("recv failed: {}", e));

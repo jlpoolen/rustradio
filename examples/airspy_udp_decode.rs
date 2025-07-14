@@ -2,18 +2,24 @@ use anyhow::Result;
 use clap::Parser;
 use log::warn;
 
+use std::borrow::Cow;
+use tracing::{debug, error, trace};
+
 use rustradio::blocks::*;
 use rustradio::graph::GraphRunner;
 use rustradio::mtgraph::MTGraph;
 use rustradio::parse_verbosity;
-use rustradio::{Complex, Float, blockchain};
+use rustradio::{ComplexI16, Float, blockchain};
+use rustradio::udp_source::UdpSourceBuilder;
+use num_complex::Complex;
+
 
 #[derive(clap::Parser, Debug)]
 #[command(version, about)]
 struct Opt {
     /// Input file in airspy format (I/Q s16)
     #[arg(short)]
-    input: String,
+    input:  Option<String>,
 
     #[arg(short, value_parser=parse_verbosity, default_value="info")]
     verbose: usize,
@@ -40,14 +46,25 @@ pub fn main() -> Result<()> {
     let prev = blockchain![
         g,
         prev,
-        FileSource::builder(&opt.input)
-            // .repeat(rustradio::Repeat::infinite())
-            .build()?,
-        Map::keep_tags(prev, "ishort to complex", |v: u32| {
-            let i = (v & 0xffff) as u16 as i16;
-            let q = ((v >> 16) & 0xffff) as u16 as i16;
-            Complex::new(i as Float, q as Float) / 1000.0
-        }),
+        UdpSourceBuilder::<ComplexI16>::new(
+            "0.0.0.0",        // bind address
+            5000,             // local port
+            "239.192.0.1",    // multicast group
+            5000              // multicast port
+        )
+        .iface_addr("192.168.1.2")       // ← your NIC's IP
+        .reuse_addr(true)
+        .build()?,
+        Map::new(
+            prev,
+            "i16 to f32 complex",
+            |x: ComplexI16, tags| {
+                (
+                    Complex::new(x.re as f32, x.im as f32)/1000.0,
+                    Cow::Borrowed(tags)
+                )
+            }
+        ),
         FftFilter::new(
             prev,
             rustradio::fir::low_pass_complex(
@@ -79,7 +96,7 @@ pub fn main() -> Result<()> {
     } else {
         g.add(Box::new(FileSink::new(
             prev,
-            "out.f32",
+            "/tmp/out.f32",
             rustradio::file_sink::Mode::Overwrite,
         )?));
     }
