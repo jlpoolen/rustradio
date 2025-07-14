@@ -4,32 +4,26 @@
 // $Header$
 //
 /*
-Currently only support client mode
-To build and pick up tracing:
 
-    cargo build --features tokio-unstable
+
+   
 
 */
 use std::net::AddrParseError;
 use std::net::Ipv4Addr;
 use std::net::UdpSocket;
-use tracing::{info, debug, error, trace};
-
 use anyhow::{Context};
-
-use log::warn;
-
 use socket2::{Socket, Domain, Type, Protocol, SockRef, SockAddr};
 use std::net::SocketAddr;
 
-//use std::net::{};
-//use tracing::{info, debug, warn, error};
+use log::{info, debug, error, trace, warn};
 
-//use rustradio_macros::rustradio;
 use crate::block::{Block, BlockRet, BlockEOF, BlockName};
-//use crate::circular_buffer::BufferReader;
 use crate::stream::{ReadStream, WriteStream, Tag}; 
 use crate::{Result, Sample};
+
+//use log::{info, debug, error, trace, warn};
+
 
 
 
