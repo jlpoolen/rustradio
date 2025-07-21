@@ -74,7 +74,7 @@ pub fn main() -> Result<()> {
         MultiplyConst::new(prev, opt.volume),
     ];
 
-    if true {
+    if false {
         g.add(Box::new(AudioSink::new(prev, audio_rate as u64)?));
     } else {
         g.add(Box::new(FileSink::new(

@@ -113,6 +113,10 @@ required-features = ["audio"]
 name = "airspy_am_decode"
 required-features = ["audio"]
 
+[[example]]
+name = "udp_decode"
+required-features = ["audio"]
+
 [profile.release]
 # debug = true
 
@@ -142,3 +146,7 @@ undocumented-unsafe-blocks = "warn"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage,coverage_nightly)'] }
+
+[[bin]]
+name = "udp_u8_listener"
+path = "src/bin/udp_u8_listener.rs"

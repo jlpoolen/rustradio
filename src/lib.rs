@@ -134,6 +134,7 @@ g.run()?;
  */
 // Macro.
 pub use rustradio_macros;
+use sha2::digest::crypto_common::InvalidLength;
 
 // Blocks.
 pub mod add;
@@ -234,6 +235,13 @@ pub enum Error {
         #[source]
         source: std::io::Error,
         path: std::path::PathBuf,
+    },
+
+    /// Incorrect byte count
+    #[error("An error occurred: Expected {expected:?}, found {found:?}")]
+    InvalidLength { 
+        expected: usize, 
+        found: usize
     },
 
     /// An error happened with a device such as SDR or audio device.
@@ -673,6 +681,30 @@ impl Sample for i32 {
         i32::to_le_bytes(*self).to_vec()
     }
 }
+
+impl Sample for i16 {
+    type Type = i16;
+
+    fn parse(input: &[u8]) -> Result<Self::Type> {
+        if input.len() < 2 {
+            return Err(Error::InvalidLength {
+            expected: 2,
+            found: input.len(),
+        });
+        }
+        let bytes: [u8; 2] = [input[0], input[1]];
+        Ok(i16::from_le_bytes(bytes))
+    }
+
+    fn serialize(&self) -> Vec<u8> {
+        self.to_le_bytes().to_vec()
+    }
+
+    fn size() -> usize {
+        2
+    }
+}
+
 // for AirSpy2 which send i16 for I & Q, hence 32 its per sample
 pub type ComplexI16 = num_complex::Complex<i16>;
 
@@ -701,7 +733,31 @@ impl Sample for ComplexI16 {
         ret
     }
 }
+// for RTL-SDR which sends u8 for I & Q, hence 16 its per sample
+pub type ComplexU8 = num_complex::Complex<u8>;
 
+//use num_complex::Complex as ComplexI16;
+
+impl Sample for ComplexU8 {
+    type Type = ComplexU8;
+
+    fn size() -> usize {
+        std::mem::size_of::<u8>() * 2
+    }
+
+    fn parse(data: &[u8]) -> Result<Self::Type> {
+        //println!("DEBUG parse: data={:?}", data);
+        if data.len() < Self::size() {
+            return Err(Error::msg("not enough bits ( 1 byte) for Complex<u8>"));
+        }
+        let i = data[0];
+        let q = data[1];
+        Ok(ComplexU8::new(i, q))
+    }
+    fn serialize(&self) -> Vec<u8> {
+        vec![self.re, self.im]
+    }
+}
 /// Trivial trait for types that have .len().
 #[allow(clippy::len_without_is_empty)]
 pub trait Len {

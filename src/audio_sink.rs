@@ -75,7 +75,7 @@ impl CpalOutput {
         let device = self.device.clone();
         let config = self.config.clone();
 
-        info!("Starting output stream {config:?}");
+        info!("Starting audio output stream {config:?}");
         let stream = device.build_output_stream(
             &config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
