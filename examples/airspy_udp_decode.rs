@@ -123,7 +123,8 @@ pub fn main() -> Result<()> {
     println!("Sample rate: {}, Audio rate: {}", samp_rate, audio_rate);
     println!("Reuse addr: {}", reuse_addr);
 
-
+println!("Using fixed multicast address:port: 239.192.0.1:5000 -- TRANSMISSION MUST MATCH THIS");
+    
     let verbosity = if cfg!(debug_assertions) {
         opt.verbose
     } else {

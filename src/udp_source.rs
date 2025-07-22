@@ -327,11 +327,11 @@ where
                     let max_output_samples = output_slice.len();
                     let mut written = 0;
                     let mut sample_counter: usize = 0;
-                    info!(
-                        "[💡 Diagnostics] chunked.len() = {}, output_slice.len() = {}",
-                        chunked.clone().count(),
-                        output_slice.len()
-                    );
+                    // info!(
+                    //     "[💡 Diagnostics] chunked.len() = {}, output_slice.len() = {}",
+                    //     chunked.clone().count(),
+                    //     output_slice.len()
+                    // );
 
                     for (i, chunk) in chunked.enumerate() {
                         //println!("[327 {}] chunk[{}] = {:02X} {:02X}", now(), i, chunk[0], chunk[1]);
@@ -383,10 +383,10 @@ where
                 }
                 //info!("[UdpSource Block.work] Parsed {} valid samples", count);
                 if !remainder.is_empty() {
-                    warn!(
-                        "[UdpSource Block.work] Discarding {} leftover bytes (incomplete sample)",
-                        remainder.len()
-                    );
+                    // warn!(
+                    //     "[UdpSource Block.work] Discarding {} leftover bytes (incomplete sample)",
+                    //     remainder.len()
+                    // );
                 }
             }
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
