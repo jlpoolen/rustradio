@@ -9,6 +9,10 @@ use log::warn;
 use std::borrow::Cow;
 //use std::net::IpAddr;
 use std::path::{Path, PathBuf};
+use std::fs;
+use std::os::unix::fs::FileTypeExt;
+
+use anyhow::anyhow;
 
 //use tracing::{debug, error, trace};
 
@@ -101,14 +105,26 @@ pub fn main() -> Result<()> {
     let audio_rate = opt.audio_rate;
 
     // Audio output flag and filename
+    // Had been designed of "either audio or file, but not both"
     let (output_audio, file_name): (bool, Option<String>) = match &opt.filename {
         Some(f) => {
-            let path = std::path::Path::new(f);
-            if !path.exists() || path.is_file() {
-                (false, Some(f.clone()))
-            } else {
-                return Err(anyhow::anyhow!("Invalid output file path: {f}"));
+            // let path = std::path::Path::new(f);
+            // if !path.exists() || path.is_file() {
+            //     (false, Some(f.clone()))
+            // } else {
+            //     return Err(anyhow::anyhow!("Invalid output file path: {f}"));
+            // }
+            if let Some(fname) = &opt.filename {
+                let output_path = Path::new(fname);
+                let metadata = fs::metadata(output_path)
+                    .map_err(|_| anyhow!("Output path does not exist: {}", fname))?;
+
+                let file_type = metadata.file_type();
+                if !file_type.is_file() && !file_type.is_fifo() {
+                    return Err(anyhow!("Output path must be a regular file or FIFO: {}", fname));
+                }
             }
+            (false, opt.filename)
         }
         None => (true, None),
     };
