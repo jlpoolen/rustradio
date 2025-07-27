@@ -1,5 +1,14 @@
 /*
 clear; date; cargo run  --example airspy_udp_decode --features audio,logging
+THE above will not play nicely because of all the competing debug output!
+
+To compile release:
+
+   /usr/local/src/rustradio $ cargo build --release --example airspy_udp_decode --features "audio"
+
+To run:
+
+   target/release/examples/airspy_udp_decode -i f32 -m 239.192.0.1 -p 5000 --volume 1
 
 */
 use anyhow::Result;
@@ -156,15 +165,15 @@ pub fn main() -> Result<()> {
     let mut g = MTGraph::new();
     let samp_rate = 2_500_000f32;
     let audio_rate = 48000;
-
+    println!("WARNING: hard-code override: Multicast: 239.192.0.5 port 5005 * * * * * * *");
     let prev = blockchain![
         g,
         prev,
         UdpSourceBuilder::<ComplexI16>::new(
             "0.0.0.0",     // bind address
-            5000,          // local port
-            "239.192.0.1", // multicast group
-            5000           // multicast port
+            port_local,          // local port
+            &multicast_addr, // multicast group
+            port_multicast           // multicast port
         )
         .iface_addr(&iface_addr) // ← your NIC's IP
         .reuse_addr(true) 
