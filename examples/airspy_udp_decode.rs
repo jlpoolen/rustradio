@@ -165,7 +165,6 @@ pub fn main() -> Result<()> {
     let mut g = MTGraph::new();
     let samp_rate = 2_500_000f32;
     let audio_rate = 48000;
-    println!("WARNING: hard-code override: Multicast: 239.192.0.5 port 5005 * * * * * * *");
     let prev = blockchain![
         g,
         prev,
