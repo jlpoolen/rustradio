@@ -1,0 +1,1 @@
+airspy_udp_decode  -m 239.192.0.1 --port 5000 --samp-rate 2500000  --volume 9 --audio-rate 48000  2>&1
