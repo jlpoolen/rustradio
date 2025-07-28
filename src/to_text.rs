@@ -22,7 +22,7 @@ g.add(Box::new(sink));
 */
 use crate::{Result, Sample};
 
-use crate::block::{Block, BlockRet};
+use crate::block::{Block, BlockEOF, BlockRet};
 use crate::stream::{ReadStream, WriteStream};
 
 /// Turn samples into text.
@@ -30,18 +30,25 @@ use crate::stream::{ReadStream, WriteStream};
 /// Read from one or more streams, and produce a text file where each
 /// line is one sample per stream, separated by spaces.
 #[derive(rustradio_macros::Block)]
-#[rustradio(crate, noeof)]
-pub struct ToText<T: Sample> {
+#[rustradio(crate, noeof, bound = "T: Sample")]
+pub struct ToText<T> {
     srcs: Vec<ReadStream<T>>,
     #[rustradio(out)]
     dst: WriteStream<u8>,
 }
 
-impl<T: Sample> ToText<T> {
+impl<T> ToText<T> {
     /// Create new ToText block.
+    #[must_use]
     pub fn new(srcs: Vec<ReadStream<T>>) -> (Self, ReadStream<u8>) {
         let (dst, dr) = crate::stream::new_stream();
         (Self { srcs, dst }, dr)
+    }
+}
+
+impl<T> BlockEOF for ToText<T> {
+    fn eof(&mut self) -> bool {
+        self.srcs.iter().all(|s| s.eof())
     }
 }
 

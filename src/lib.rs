@@ -14,8 +14,6 @@
 // I don't like the recommended syntax.
 // Commented on https://github.com/rust-lang/rust/pull/138677
 #![allow(mismatched_lifetime_syntaxes)]
-// Unstable clippy keeps recommending unstable syntax.
-#![allow(clippy::collapsible_if)]
 
 /*! This create provides a framework for running SDR (software defined
 radio) applications.
@@ -198,6 +196,12 @@ pub mod zero_crossing;
 #[cfg(feature = "audio")]
 pub mod audio_sink;
 
+#[cfg(feature = "pipewire")]
+pub mod pipewire_sink;
+
+#[cfg(feature = "pipewire")]
+pub mod pipewire_source;
+
 #[cfg(feature = "rtlsdr")]
 pub mod rtlsdr_source;
 
@@ -209,7 +213,10 @@ pub mod soapysdr_source;
 
 pub mod block;
 pub mod blocks;
+
+#[cfg(not(feature = "wasm"))]
 pub mod circular_buffer;
+
 pub mod graph;
 pub mod mtgraph;
 pub mod stream;
@@ -225,6 +232,9 @@ pub type Float = f32;
 
 /// Complex (I/Q) data.
 pub type Complex = num_complex::Complex<Float>;
+
+pub(crate) static NEXT_STREAM_ID: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(1);
 
 /// RustRadio error.
 #[derive(thiserror::Error, Debug)]

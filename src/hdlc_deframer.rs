@@ -171,7 +171,7 @@ impl HdlcDeframer {
                 // Remove partial flag.
                 bits.truncate(bits.len() - 7);
 
-                if bits.len() % 8 != 0 {
+                if !bits.len().is_multiple_of(8) {
                     trace!(
                         "HdlcDeframer: Packet len not multiple of 8: {} {:?}",
                         bits.len(),
@@ -285,6 +285,7 @@ const FCSTAB: &[u16] = &[
 ];
 
 // Calculate checksum. Code ported from RFC1662.
+#[must_use]
 pub(crate) fn calc_crc(data: &[u8]) -> u16 {
     data.iter().fold(0xffffu16, |fcs, byte| {
         let byte = *byte as u16;

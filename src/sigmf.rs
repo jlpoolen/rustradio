@@ -247,6 +247,7 @@ impl<T: Sample + Type> SigMFSourceBuilder<T> {
     ///
     /// This is used e.g. if you just want the bytes of the data stream, to
     /// checksum or something.
+    #[must_use]
     pub fn ignore_type_error(mut self) -> Self {
         self.ignore_type_error = true;
         self
@@ -376,17 +377,16 @@ impl<T: Sample + Type> SigMFSource<T> {
             }
         };
         let meta = block.meta();
-        if let Some(samp_rate) = samp_rate {
-            if let Some(t) = meta.global.core_sample_rate {
-                if t != samp_rate {
-                    return Err(Error::msg(format!(
-                        "sigmf file {} sample rate ({}) is not the expected {}",
-                        path.as_ref().display(),
-                        t,
-                        samp_rate
-                    )));
-                }
-            }
+        if let Some(samp_rate) = samp_rate
+            && let Some(t) = meta.global.core_sample_rate
+            && t != samp_rate
+        {
+            return Err(Error::msg(format!(
+                "sigmf file {} sample rate ({}) is not the expected {}",
+                path.as_ref().display(),
+                t,
+                samp_rate
+            )));
         }
         // TODO: support i8/u8 and _be.
         if !ignore_type_error {

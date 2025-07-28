@@ -1,5 +1,5 @@
 [workspace]
-members = ["rustradio_macros"]
+members = ["rustradio_macros", "rustradio_macros_code"]
 
 [package]
 name = "rustradio"
@@ -11,6 +11,8 @@ readme = "README.md"
 repository = "https://github.com/ThomasHabets/rustradio"
 description = "Software defined radio library"
 keywords = ["SDR", "radio"]
+# Min version restricted by let chains.
+rust-version = "1.88"
 
 # See more keys and their definitions at
 # https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -37,14 +39,13 @@ sha2 = "0.10"
 thiserror = "2.0"
 tokio = { version = "1.44", optional = true, features = ["full"] }
 async-trait = "0.1"
-nix = { version = "0.30.1", optional = true, features = ["term"] }
-socket2 = { version = "0.5", features = ["all"] }
+#nix = { version = "0.30.1", optional = true, features = ["term", "socket" ] }
+nix = { version = "0.30.1", default-features = false, optional = true }
+pipewire = { version = "0.8.0", optional = true }
 anyhow = "1.0"
-tracing = { version = "0.1", optional = true }
-tracing-subscriber = { version = "0.3", optional = true }
+socket2 = "0.6.0"
+tracing-subscriber = "0.3.19"
 local-ip-address = "0.6.5"
-
-
 # System fftw has been many times faster for me than not. Maybe because the C
 # code is not compiled with the right options, like -march=native?
 [dependencies.fftw]
@@ -80,11 +81,10 @@ fast-math = ["dep:fast-math"]
 audio = ["dep:cpal"]
 fftw = ["dep:fftw"]
 async = ["dep:tokio"]
-logging = ["tracing", "tracing-subscriber"]
-#tokio-unstable = ["tokio/tracing", "logging"]
+tokio-unstable = ["tokio/tracing"]
 nix = ["dep:nix"]
-tracing = ["dep:tracing"]
-tracing-subscriber = ["dep:tracing-subscriber"]
+wasm = []
+pipewire = ["dep:pipewire"]
 
 [[example]]
 name = "bell202"
@@ -111,11 +111,11 @@ name = "tone"
 required-features = ["audio"]
 
 [[example]]
-name = "airspy_am_decode"
-required-features = ["audio"]
+name = "pw_tone"
+required-features = ["pipewire"]
 
 [[example]]
-name = "udp_decode"
+name = "airspy_am_decode"
 required-features = ["audio"]
 
 [profile.release]

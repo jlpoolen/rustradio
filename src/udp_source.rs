@@ -15,6 +15,10 @@ use std::net::AddrParseError;
 use std::net::Ipv4Addr;
 use std::net::SocketAddr;
 use std::net::UdpSocket;
+#[cfg(feature = "nix")]
+use nix::sys::socket::{setsockopt, sockopt::ReusePort};
+#[cfg(feature = "nix")]
+use std::os::unix::io::AsRawFd;
 
 use log::{error, info, trace, warn};
 
@@ -149,7 +153,7 @@ impl<T: Sample + std::fmt::Debug> UdpSourceBuilder<T> {
             }
             Platform::Default => {}
         }
-
+        
         let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))
             .context("Failed to create UDP socket")?;
 
@@ -165,13 +169,10 @@ impl<T: Sample + std::fmt::Debug> UdpSourceBuilder<T> {
             info!("socket reuse address set to true.");
         }
 
-        #[cfg(target_os = "linux")]
-        if self.config.reuse_port.unwrap_or(false) {
-            socket
-                .set_reuse_port(true)
-                .context("Failed to set SO_REUSEPORT")?;
-            info!("Since we're in Linux, socket reuse port set to true.");
-        }
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        #[cfg(feature = "nix")]
+        setsockopt(ReusePort, socket.as_raw_fd(), &true)?;
+
         // Join multicast group if specified
         if !self.config.multicast_addr.is_empty() {
             let multi: Ipv4Addr = self
@@ -233,21 +234,7 @@ impl<T: Sample + std::fmt::Debug> UdpSourceBuilder<T> {
             .context("Failed to set non-blocking(true) mode")?;
         //.set_nonblocking(false)?;
         info!("Temporary: activating: socket.set_nonblocking(true)");
-        //info!("Temporary: activating: socket.set_nonblocking(false)");
-        //info!("Temporary: suspending socket nonblocking to 'true' or 'false'");
-
-        let sockref = SockRef::from(&socket);
-        info!("Socket non-blocking status: {:?}", sockref.nonblocking());
-
-        // let (tx, rx) = crate::stream::new_stream();
-        // info!("💡 rx stream address = {:p}", &rx as *const _);
-        // info!("💡 tx stream address = {:p}", &tx as *const _);
-        // let udp_socket: std::net::UdpSocket = socket.into();
-        // let udp_source = UdpSource {
-        //     socket: udp_socket,
-        //     buffer: [0u8; 4096],
-        //     dst: tx,
-        // };
+ 
 
         // Ok((udp_source, rx))
 
@@ -496,10 +483,9 @@ mod tests {
             socket
                 .set_reuse_address(true)
                 .expect("❌ set SO_REUSEADDR failed");
-            #[cfg(target_os = "linux")] // Windows and Mac do not observe port reuse... tsk tsk
-            socket
-                .set_reuse_port(true)
-                .expect("❌ set SO_REUSEPORT failed");
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            #[cfg(feature = "nix")]
+            setsockopt(ReusePort, socket.as_raw_fd(), &true)?;
 
             //let bind_addr: SocketAddr = "0.0.0.0:0".parse().unwrap();
             let ip: IpAddr = bind_addr.parse().expect("❌ Invalid bind_addr");
@@ -672,11 +658,11 @@ mod tests {
                 socket
                     .set_reuse_address(true)
                     .expect("❌ set SO_REUSEADDR failed");
-                #[cfg(target_os = "linux")] // Windows and Mac do not observe port reuse... tsk tsk
-                socket
-                    .set_reuse_port(true)
-                    .expect("❌ set SO_REUSEPORT failed");
-
+         
+                #[cfg(any(target_os = "linux", target_os = "android"))]
+                #[cfg(feature = "nix")]
+                setsockopt(ReusePort, socket.as_raw_fd(), &true)?;
+                
                 let ip: IpAddr = bind_addr.parse().expect("❌ Invalid bind_addr");
                 let bind_socket_addr = SocketAddr::new(ip, bind_port);
 
@@ -735,10 +721,11 @@ mod tests {
                 socket
                     .set_reuse_address(true)
                     .expect("❌ set SO_REUSEADDR failed");
-                #[cfg(target_os = "linux")] // Windows and Mac do not observe port reuse... tsk tsk
-                socket
-                    .set_reuse_port(true)
-                    .expect("❌ set SO_REUSEPORT failed");
+                
+                #[cfg(any(target_os = "linux", target_os = "android"))]
+                #[cfg(feature = "nix")]
+                setsockopt(ReusePort, socket.as_raw_fd(), &true)?;
+                
 
                 let ip: IpAddr = bind_addr.parse().expect("❌ Invalid bind_addr");
                 let bind_socket_addr = SocketAddr::new(ip, bind_port);

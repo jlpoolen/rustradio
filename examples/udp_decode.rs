@@ -17,7 +17,8 @@ or:
      cargo build --release --example udp_decode --features="audio"
 then:
     cd /usr/local/src/rustradio
-    target/release/udp_decode -m 239.192.0.3 -p 50003 --samp-rate 288000 --format u8
+    target/release/examples/udp_decode -m 239.192.0.3 -p 50003 --samp-rate 288000 --format u8 --volume 8
+    
 */
 use anyhow::Result;
 use clap::{Arg, ArgAction, Command, Parser, ValueEnum};

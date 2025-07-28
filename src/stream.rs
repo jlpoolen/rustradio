@@ -54,6 +54,7 @@ pub struct Tag {
 
 impl Tag {
     /// Create new tag.
+    #[must_use]
     pub fn new<T: Into<String>>(pos: TagPos, key: T, val: TagValue) -> Self {
         Self {
             pos,
@@ -65,6 +66,7 @@ impl Tag {
     /// Get pos.
     ///
     /// Relative to the current window.
+    #[must_use]
     pub fn pos(&self) -> TagPos {
         self.pos
     }
@@ -77,11 +79,13 @@ impl Tag {
     }
 
     /// Get tag key.
+    #[must_use]
     pub fn key(&self) -> &str {
         &self.key
     }
 
     /// Get tag value.
+    #[must_use]
     pub fn val(&self) -> &TagValue {
         &self.val
     }
@@ -304,6 +308,7 @@ impl<T: Copy> WriteStream<T> {
     }
 
     #[cfg(feature = "async")]
+    #[must_use]
     pub async fn wait_for_write_async(&self, need: usize) -> bool {
         self.circ.wait_for_write_async(need).await < need && Arc::strong_count(&self.circ) == 1
     }
@@ -429,8 +434,7 @@ pub fn new_nocopy_stream<T>() -> (NCWriteStream<T>, NCReadStream<T>) {
         #[cfg(feature = "async")]
         acvr: tokio::sync::Notify::new(),
     });
-    let id =
-        crate::circular_buffer::NEXT_STREAM_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let id = crate::NEXT_STREAM_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     (
         NCWriteStream {
             id,
@@ -468,6 +472,7 @@ impl<T> NCReadStream<T> {
     }
 
     /// Return true is empty.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         let has = self.inner.lock.lock().unwrap().len();
         has == 0
@@ -486,6 +491,7 @@ impl<T> StreamReadSide for NCWriteStream<T> {
 }
 impl<T> NCWriteStream<T> {
     /// Create a new stream pair.
+    #[must_use]
     pub fn new() -> (NCWriteStream<T>, NCReadStream<T>) {
         new_nocopy_stream()
     }
@@ -503,6 +509,7 @@ impl<T> NCWriteStream<T> {
     }
 
     /// Remaining capacity.
+    #[must_use]
     pub fn remaining(&self) -> usize {
         let has = self.inner.lock.lock().unwrap().len();
         self.inner.capacity - has
@@ -511,6 +518,7 @@ impl<T> NCWriteStream<T> {
 
 impl<T: Len> NCReadStream<T> {
     /// Get the size of the front packet.
+    #[must_use]
     pub fn peek_size(&self) -> Option<usize> {
         self.inner.lock.lock().unwrap().front().map(|e| e.val.len())
     }

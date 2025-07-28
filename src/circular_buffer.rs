@@ -46,7 +46,7 @@ impl Map {
         //   pointer assumption is restricted to Map.
         let buf = unsafe { libc::mmap(ptr, len as size_t, PROT_READ | PROT_WRITE, flags, fd, 0) };
         if std::ptr::eq(buf, MAP_FAILED) {
-            let e = errno::errno();
+            let e = std::io::Error::last_os_error();
             return Err(Error::msg(format!(
                 "mmap(){}: {e}",
                 if ptr.is_null() {
@@ -62,7 +62,7 @@ impl Map {
             // length, so this has to be fine.
             let rc = unsafe { libc::munmap(buf, len as size_t) };
             if rc != 0 {
-                let e = errno::errno();
+                let e = std::io::Error::last_os_error();
                 panic!("Failed to unmap buffer just mapped in the failure path: {e}");
             }
             return Err(Error::msg("mmap() allocated in the wrong place"));
@@ -79,7 +79,7 @@ impl Drop for Map {
         // SAFETY: This is what we mmapped.
         let rc = unsafe { libc::munmap(self.base as *mut c_void, self.len) };
         if rc != 0 {
-            let e = errno::errno();
+            let e = std::io::Error::last_os_error();
             panic!("munmap() failed on circular buffer: {e}");
         }
     }
@@ -146,7 +146,7 @@ impl Circ {
     #[must_use]
     fn full_buffer<T>(&self, start: usize, end: usize) -> &mut [T] {
         let ez = std::mem::size_of::<T>();
-        debug_assert!(self.len % ez == 0);
+        debug_assert!(self.len.is_multiple_of(ez));
         debug_assert!(
             end - start <= self.len / ez / 2,
             "requested {start} to {end} ({} entries) of {} but len is {}",
@@ -342,14 +342,11 @@ pub struct Buffer<T> {
     dummy: std::marker::PhantomData<T>,
 }
 
-pub(crate) static NEXT_STREAM_ID: std::sync::atomic::AtomicUsize =
-    std::sync::atomic::AtomicUsize::new(1);
-
 impl<T> Buffer<T> {
     /// Create a new Buffer.
     pub fn new(size: usize) -> Result<Self> {
         Ok(Self {
-            id: NEXT_STREAM_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            id: crate::NEXT_STREAM_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             state: Arc::new(BufferInner {
                 lock: Mutex::new(BufferState {
                     rpos: 0,
@@ -371,6 +368,7 @@ impl<T> Buffer<T> {
         })
     }
 
+    #[must_use]
     pub(crate) fn id(&self) -> usize {
         self.id
     }
@@ -428,6 +426,7 @@ impl<T> Buffer<T> {
 }
 
 impl<T> Buffer<T> {
+    #[must_use]
     pub(crate) fn is_empty(&self) -> bool {
         let state = self.state.lock.lock().unwrap();
         state.used == 0
@@ -513,10 +512,12 @@ impl<T: Copy> Buffer<T> {
         self.state.acvr.notify_waiters();
     }
 
+    #[must_use]
     pub(crate) fn slice(&self, start: usize, end: usize) -> &[T] {
         self.circ.full_buffer::<T>(start, end)
     }
 
+    #[must_use]
     pub(crate) fn slice_mut(&self, start: usize, end: usize) -> &mut [T] {
         self.circ.full_buffer::<T>(start, end)
     }

@@ -39,7 +39,7 @@ struct Opt {
     driver: String,
 
     /// Verbosity level.
-    #[arg(short, value_parser=parse_verbosity, default_value_t = 0)]
+    #[arg(short, value_parser=parse_verbosity, default_value = "info")]
     verbose: usize,
 
     /// TX/RX frequency.
@@ -79,7 +79,6 @@ fn get_kiss_stream(opt: &Opt) -> Result<(Box<dyn Write + Send>, Box<dyn Read + S
         let listener = std::net::TcpListener::bind(addr)?;
         info!("Awaiting connection");
         let (tcp, addr) = listener.accept()?;
-        tcp.set_read_timeout(Some(std::time::Duration::from_millis(500)))?;
         drop(listener);
         info!("Connect from {addr}");
         info!("Setting up device");
@@ -158,7 +157,7 @@ pub fn main() -> Result<()> {
         let prev = blockchain![
             g,
             prev,
-            ReaderSource::new(rx),
+            ReaderSource::new(rx)?,
             KissFrame::new(prev),
             KissDecode::new(prev),
             FcsAdder::new(prev),
