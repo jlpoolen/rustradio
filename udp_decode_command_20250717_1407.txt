@@ -1,0 +1,1 @@
+time timeout 30 target/release/examples/udp_decode  -m 239.192.0.3 -p 5003 --samp-rate 288000 --format u8 --volume 9 --filename /tmp/test_30sec_v9_wawa.pcm

@@ -1,5 +1,14 @@
 /*
 clear; date; cargo run  --example airspy_udp_decode --features audio,logging
+THE above will not play nicely because of all the competing debug output!
+
+To compile release:
+
+   /usr/local/src/rustradio $ cargo build --release --example airspy_udp_decode --features "audio"
+
+To run:
+
+   target/release/examples/airspy_udp_decode -i f32 -m 239.192.0.1 -p 5000 --volume 1
 
 */
 use anyhow::Result;
@@ -9,6 +18,10 @@ use log::warn;
 use std::borrow::Cow;
 //use std::net::IpAddr;
 use std::path::{Path, PathBuf};
+use std::fs;
+use std::os::unix::fs::FileTypeExt;
+
+use anyhow::anyhow;
 
 //use tracing::{debug, error, trace};
 
@@ -101,14 +114,26 @@ pub fn main() -> Result<()> {
     let audio_rate = opt.audio_rate;
 
     // Audio output flag and filename
+    // Had been designed of "either audio or file, but not both"
     let (output_audio, file_name): (bool, Option<String>) = match &opt.filename {
         Some(f) => {
-            let path = std::path::Path::new(f);
-            if !path.exists() || path.is_file() {
-                (false, Some(f.clone()))
-            } else {
-                return Err(anyhow::anyhow!("Invalid output file path: {f}"));
+            // let path = std::path::Path::new(f);
+            // if !path.exists() || path.is_file() {
+            //     (false, Some(f.clone()))
+            // } else {
+            //     return Err(anyhow::anyhow!("Invalid output file path: {f}"));
+            // }
+            if let Some(fname) = &opt.filename {
+                let output_path = Path::new(fname);
+                let metadata = fs::metadata(output_path)
+                    .map_err(|_| anyhow!("Output path does not exist: {}", fname))?;
+
+                let file_type = metadata.file_type();
+                if !file_type.is_file() && !file_type.is_fifo() {
+                    return Err(anyhow!("Output path must be a regular file or FIFO: {}", fname));
+                }
             }
+            (false, opt.filename)
         }
         None => (true, None),
     };
@@ -141,15 +166,14 @@ println!("Using fixed multicast address:port: 239.192.0.1:5000 -- TRANSMISSION M
     let mut g = MTGraph::new();
     let samp_rate = 2_500_000f32;
     let audio_rate = 48000;
-
     let prev = blockchain![
         g,
         prev,
         UdpSourceBuilder::<ComplexI16>::new(
             "0.0.0.0",     // bind address
-            5000,          // local port
-            "239.192.0.1", // multicast group
-            5000           // multicast port
+            port_local,          // local port
+            &multicast_addr, // multicast group
+            port_multicast           // multicast port
         )
         .iface_addr(&iface_addr) // ← your NIC's IP
         .reuse_addr(true) 

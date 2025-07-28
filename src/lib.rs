@@ -156,6 +156,7 @@ pub mod fft_filter;
 pub mod fft_stream;
 pub mod file_sink;
 pub mod file_source;
+//pub mod file_sink_resilient;
 pub mod fir;
 pub mod hasher;
 pub mod hdlc_deframer;
