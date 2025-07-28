@@ -17,27 +17,15 @@ use std::net::SocketAddr;
 use std::net::UdpSocket;
 #[cfg(feature = "nix")]
 use nix::sys::socket::{setsockopt, sockopt::ReusePort};
-#[cfg(feature = "nix")]
-use std::os::unix::io::AsRawFd;
+//#[cfg(feature = "nix")]
+//use std::os::unix::io::AsRawFd;
+//use std::os::fd::AsFd; // ensures the trait is in scope
 
 use log::{error, info, trace, warn};
 
 use crate::block::{Block, BlockEOF, BlockName, BlockRet};
 use crate::stream::{ReadStream, Tag, WriteStream};
 use crate::{Result, Sample};
-
-// for debugging 2x on 8u processing 7/16
-//use std::cmp::Ordering;
-//use std::sync::atomic::Ordering;
-use std::sync::atomic::{AtomicUsize, Ordering};
-static TOTAL_BYTES: AtomicUsize = AtomicUsize::new(0);
-use crate::ComplexU8;
-
-use std::time::{SystemTime, UNIX_EPOCH};
-
-fn now() -> u128 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()
-}
 
 
 #[derive(Debug, Clone)]
@@ -111,9 +99,9 @@ impl<T: Sample + std::fmt::Debug> UdpSourceBuilder<T> {
         Self {
             config: UdpConfig {
                 bind_addr: bind_addr.to_string(),
-                bind_port: bind_port,
+                bind_port,
                 multicast_addr: multicast_addr.to_string(),
-                multicast_port: multicast_port,
+                multicast_port,
                 iface_addr: None,
                 reuse_addr: Some(true),
                 reuse_port: Some(true),
@@ -171,7 +159,7 @@ impl<T: Sample + std::fmt::Debug> UdpSourceBuilder<T> {
 
         #[cfg(any(target_os = "linux", target_os = "android"))]
         #[cfg(feature = "nix")]
-        setsockopt(ReusePort, socket.as_raw_fd(), &true)?;
+        setsockopt( &socket, ReusePort, &true)?;
 
         // Join multicast group if specified
         if !self.config.multicast_addr.is_empty() {
@@ -208,7 +196,7 @@ impl<T: Sample + std::fmt::Debug> UdpSourceBuilder<T> {
             })?;
 
             // Log the address we are about to bind
-            info!("Binding to {}", bind_addr_merged);
+            info!("Binding to {bind_addr_merged}");
 
             // Convert std::net::SocketAddr into socket2::SockAddr and bind
             socket
@@ -305,7 +293,7 @@ where
                 //    "[UdpSource Block.work] chunked.size: {}",
                 //    chunked.clone().count()
                 //);
-                let mut count = 0;
+                
                 //info!("Before if Ok.");
                 if let Ok(mut writer) = self.dst.write_buf() {
                     //info!("Before output_slice.");
@@ -313,7 +301,7 @@ where
                     //info!("After output_slice.");
                     let max_output_samples = output_slice.len();
                     let mut written = 0;
-                    let mut sample_counter: usize = 0;
+                    
                     // info!(
                     //     "[💡 Diagnostics] chunked.len() = {}, output_slice.len() = {}",
                     //     chunked.clone().count(),
@@ -324,7 +312,7 @@ where
                         //println!("[327 {}] chunk[{}] = {:02X} {:02X}", now(), i, chunk[0], chunk[1]);
 
                         if i >= max_output_samples {
-                            warn!("Output stream buffer full at {}", i);
+                            warn!("Output stream buffer full at {i}");
                             break;
                         }
 
@@ -350,13 +338,13 @@ where
                                 //     );
                                     
                                 // }
-                                sample_counter += 1;
+                               
 
                                 output_slice[written] = sample;
                                 written += 1;
                             }
                             Err(e) => {
-                                warn!("[UdpSource Block.work] ❌ Failed to parse sample: {:?}", e);
+                                warn!("[UdpSource Block.work] ❌ Failed to parse sample: {e:?}");
                             }
                         }
                     }
@@ -364,7 +352,6 @@ where
                     if written > 0 {
                         writer.produce(written, empty_tags);
                     }
-                    count = written;
                 } else {
                     error!("[UdpSource Block.work] ❌ Could not get write buffer");
                 }
@@ -385,7 +372,7 @@ where
             //}
             Err(e) => {
                 //error!("UDP recv failed: {}", e);
-                warn!("[UdpSource Block.work] UDP recv failed: {}", e);
+                warn!("[UdpSource Block.work] UDP recv failed: {e}");
             } //Err(_) => todo!()
               //Err(_) => {
               //    warn!("reached Err(_) todo!");
@@ -449,12 +436,12 @@ mod tests {
         let multicast_port = 6000;
         // --- DIAGNOSTIC OUTPUT ---
         println!("\n--- Test Parameters ---");
-        println!("Interface Name  : {}", interface_name);
-        println!("Interface IP    : {}", interface_ip);
-        println!("Bind IP         : {}", bind_addr);
-        println!("Bind Port       : {}", bind_port);
-        println!("Multicast Addr  : {}", multicast_addr);
-        println!("Multicast Port  : {}", multicast_port);
+        println!("Interface Name  : {interface_name}");
+        println!("Interface IP    : {interface_ip}");
+        println!("Bind IP         : {bind_addr}");
+        println!("Bind Port       : {bind_port}");
+        println!("Multicast Addr  : {multicast_addr}");
+        println!("Multicast Port  : {multicast_port}");
         println!("------------------------\n");
 
         // Step 1: spawn a UDP Multicaster: 2 byte transmissions of "ab" ASCII: 62, 63
@@ -462,8 +449,8 @@ mod tests {
         // 0xAB = 171 decimal
         let payload = [0xABu8; 8]; // send 8 repeating bytes: [0xAB, 0xAB, ..., 0xAB]
         info!(
-            "[{}] sending payload: 8 repeating bytes of 0xAB (171)",
-            test_name
+            "[{test_name}] sending payload: 8 repeating bytes of 0xAB (171)"
+            
         );
         thread::spawn(move || {
             // This socket's only job is to create a stream to test against, it is unrelated to
@@ -485,7 +472,8 @@ mod tests {
                 .expect("❌ set SO_REUSEADDR failed");
             #[cfg(any(target_os = "linux", target_os = "android"))]
             #[cfg(feature = "nix")]
-            setsockopt(ReusePort, socket.as_raw_fd(), &true)?;
+            setsockopt(&socket, ReusePort, &true)
+                 .unwrap_or_else(|e| eprintln!("❌ Failed to set ReusePort: {e}"));
 
             //let bind_addr: SocketAddr = "0.0.0.0:0".parse().unwrap();
             let ip: IpAddr = bind_addr.parse().expect("❌ Invalid bind_addr");
@@ -495,11 +483,11 @@ mod tests {
                 .bind(&bind_socket_addr.into())
                 .expect("❌ bind failed");
             info!(
-                "[{test_name} (thread)] bind_socket_addr: {}",
-                bind_socket_addr
+                "[{test_name} (thread)] bind_socket_addr: {bind_socket_addr}"
+                
             );
 
-            let dest: SocketAddr = format!("239.0.0.1:{}", multicast_port).parse().unwrap();
+            let dest: SocketAddr = format!("239.0.0.1:{multicast_port}").parse().unwrap();
             socket
                 .set_multicast_loop_v4(true)
                 .expect("❌ Failed to enable multicast loopback");
@@ -519,12 +507,12 @@ mod tests {
         // and empty buffer
         thread::sleep(Duration::from_millis(1000));
         info!(
-            "[{}] Multicaster for repeated payload commenced.",
-            test_name
+            "[{test_name}] Multicaster for repeated payload commenced."
+            
         );
 
         // Step 2: Start multicast receiver ---
-        info!("[{}] Setting up UdpSourceBuilder...", test_name);
+        info!("[{test_name}] Setting up UdpSourceBuilder...");
         //let builder = UdpSourceBuilder::<u8>::new(
         let (mut src, rx) =
             UdpSourceBuilder::<u8>::new(bind_addr, bind_port, multicast_addr, multicast_port)
@@ -535,20 +523,20 @@ mod tests {
                 .unwrap_or_else(|e| panic!("❌ Failed to build UdpSourceBuilder: {e}"));
 
         // we need to loop calling work until something is received and then break out of the loop
-        info!("[{}] Before calling work() loop.", test_name);
+        info!("[{test_name}] Before calling work() loop.");
         loop {
             thread::sleep(Duration::from_millis(10)); // prevent flooding
             src.work()
                 .unwrap_or_else(|e| panic!("❌ Failed to call work(): {e}"));
-            info!("[{}] After calling src.work()", test_name);
+            info!("[{test_name}] After calling src.work()");
             let (reader, _) = rx
                 .read_buf()
                 .unwrap_or_else(|e| panic!("❌ Failed to read_buf: {e}"));
             if reader.is_empty() {
-                info!("[{}] reader is empty.", test_name);
+                info!("[{test_name}] reader is empty.");
                 continue;
             } else {
-                info!("[{}] reader is NOT empty.", test_name);
+                info!("[{test_name}] reader is NOT empty.");
                 info!(
                     "[{}] After creating reader, length = {}",
                     test_name,
@@ -556,9 +544,9 @@ mod tests {
                 );
                 if reader.len() >= 2 {
                     //if true { // force entry into this clause
-                    info!("[{}] In reader >=1 clause.", test_name);
+                    info!("[{test_name}] In reader >=1 clause.");
                     let data: &[u8] = reader.slice();
-                    info!("[{}] data: {:?}", test_name, data);
+                    info!("[{test_name}] data: {data:?}");
                     //let a = reader[0];
                     //let b = reader[0];  // was 1, changing to 0 since length = 1
                     //assert_eq!(b.wrapping_sub(a), 1, "Values: a = {a}, b = {b}");
@@ -568,7 +556,7 @@ mod tests {
             thread::sleep(Duration::from_millis(10));
         }
 
-        info!("[{}] After calling work() loop.", test_name);
+        info!("[{test_name}] After calling work() loop.");
 
         let (reader, _tags) = rx.read_buf().expect("instantiation of reader failed.");
         // Convert to slice so we can call `.chunks()`
@@ -630,7 +618,7 @@ mod tests {
         let counter_clone = counter.clone();
 
         let payload_choice = std::env::var("PAYLOAD_INCREMENTING")
-            .map(|val| val == "1" || val.to_ascii_lowercase() == "true")
+            .map(|val| val == "1" || val.eq_ignore_ascii_case("true"))
             .unwrap_or(false);
 
         // Spawn a continuous sender
@@ -638,7 +626,7 @@ mod tests {
             // 1 byte transmission  "The quick brown fox..."
             let phrase = "The quick brown fox jumps over the lazy dog 1234567890!";
             let payload = phrase.as_bytes();
-            info!("[{}] sending payload: {}", test_name, phrase);
+            info!("[{test_name}] sending payload: {phrase}");
 
             thread::spawn(move || {
                 // This socket's only job is to create a stream to test against, it is unrelated to
@@ -661,7 +649,8 @@ mod tests {
          
                 #[cfg(any(target_os = "linux", target_os = "android"))]
                 #[cfg(feature = "nix")]
-                setsockopt(ReusePort, socket.as_raw_fd(), &true)?;
+                setsockopt(&socket, ReusePort, &true)
+                    .unwrap_or_else(|e| eprintln!("❌ Failed to set ReusePort: {e}"));
                 
                 let ip: IpAddr = bind_addr.parse().expect("❌ Invalid bind_addr");
                 let bind_socket_addr = SocketAddr::new(ip, bind_port);
@@ -670,11 +659,11 @@ mod tests {
                     .bind(&bind_socket_addr.into())
                     .expect("❌ bind failed");
                 info!(
-                    "[{} (thread)] bind_socket_addr: {}",
-                    test_name, bind_socket_addr
+                    "[{test_name} (thread)] bind_socket_addr: {bind_socket_addr}"
+                    
                 );
 
-                let dest: SocketAddr = format!("{}:{}", multicast_addr, multicast_port)
+                let dest: SocketAddr = format!("{multicast_addr}:{multicast_port}")
                     .parse()
                     .unwrap();
                 socket
@@ -682,7 +671,7 @@ mod tests {
                     .expect("❌ Failed to enable multicast loopback");
                 loop {
                     socket
-                        .send_to(&payload, &dest.into())
+                        .send_to(payload, &dest.into())
                         .expect("❌ send_to failed");
                     thread::sleep(Duration::from_millis(250));
                 }
@@ -724,7 +713,8 @@ mod tests {
                 
                 #[cfg(any(target_os = "linux", target_os = "android"))]
                 #[cfg(feature = "nix")]
-                setsockopt(ReusePort, socket.as_raw_fd(), &true)?;
+                setsockopt(&socket, ReusePort, &true)
+                    .unwrap_or_else(|e| eprintln!("❌ Failed to set ReusePort: {e}"));
                 
 
                 let ip: IpAddr = bind_addr.parse().expect("❌ Invalid bind_addr");
@@ -734,11 +724,11 @@ mod tests {
                     .bind(&bind_socket_addr.into())
                     .expect("❌ bind failed");
                 info!(
-                    "[{} (thread)] bind_socket_addr: {}",
-                    test_name, bind_socket_addr
+                    "[{test_name} (thread)] bind_socket_addr: {bind_socket_addr}"
+                    
                 );
 
-                let dest: SocketAddr = format!("239.0.0.1:{}", multicast_port).parse().unwrap();
+                let dest: SocketAddr = format!("239.0.0.1:{multicast_port}").parse().unwrap();
                 socket
                     .set_multicast_loop_v4(true)
                     .expect("❌ Failed to enable multicast loopback");
@@ -765,7 +755,7 @@ mod tests {
                 .reuse_port(true)
                 .build()
                 .unwrap_or_else(|e| panic!("❌ Failed to call build() on UdpSourceBuilder: {e}"));
-        info!("[{}] Created UdpSource.", test_name);
+        info!("[{test_name}] Created UdpSource.");
 
         // Try up to N rounds to get 2 valid samples
         // let mut previous = None;
@@ -774,15 +764,15 @@ mod tests {
         loop {
             src.work()
                 .unwrap_or_else(|e| panic!("❌ Failed to call work(): {e}"));
-            info!("[{}] After calling src.work()", test_name);
+            info!("[{test_name}] After calling src.work()");
             let (reader, _) = rx
                 .read_buf()
                 .unwrap_or_else(|e| panic!("❌ Failed to read_buf: {e}"));
 
             if reader.is_empty() {
-                info!("[{}] reader is empty.", test_name);
+                info!("[{test_name}] reader is empty.");
             } else {
-                info!("[{}] reader is NOT empty.", test_name);
+                info!("[{test_name}] reader is NOT empty.");
             }
             info!("[{}] reader address (rx): {:p}", test_name, &rx as *const _);
             info!(
@@ -791,9 +781,9 @@ mod tests {
                 reader.len()
             );
             if reader.len() >= 2 {
-                info!("[{}] In reader >=1 clause.", test_name);
+                info!("[{test_name}] In reader >=1 clause.");
                 let data: &[u8] = reader.slice();
-                info!("[{}] data: {:?}", test_name, data);
+                info!("[{test_name}] data: {data:?}" );
                 return Ok(());
             }
             thread::sleep(Duration::from_millis(10));
@@ -853,16 +843,16 @@ mod tests {
 
         // --- DIAGNOSTIC OUTPUT ---
         println!("\n--- Test Parameters ---");
-        println!("Interface Name  : {}", interface_name);
-        println!("Interface IP    : {}", interface_ip);
-        println!("Bind IP         : {}", bind_addr);
-        println!("Bind Port       : {}", bind_port);
-        println!("Multicast Addr  : {}", multicast_addr);
-        println!("Multicast Port  : {}", multicast_port);
+        println!("Interface Name  : {interface_name}");
+        println!("Interface IP    : {interface_ip}");
+        println!("Bind IP         : {bind_addr}");
+        println!("Bind Port       : {bind_port}");
+        println!("Multicast Addr  : {multicast_addr}");
+        println!("Multicast Port  : {multicast_port}");
         //println!("test_payload is 4096 characters.");
-        println!("Payload         : {:02X?}", test_payload);
-        println!("Max Attempts    : {}", max_attempts);
-        println!("Delay Per Try   : {}ms", delay_ms);
+        println!("Payload         : {test_payload:02X?}");
+        println!("Max Attempts    : {max_attempts}");
+        println!("Delay Per Try   : {delay_ms}ms");
         println!("------------------------\n");
 
         // --- STEP 1: Start multicast receiver ---
@@ -899,16 +889,16 @@ mod tests {
             test_name, &rx
         );
         info!(
-            "[{}] UdpSourceBuilder initialized. Waiting 200ms for multicast join...",
-            test_name
+            "[{test_name}] UdpSourceBuilder initialized. Waiting 200ms for multicast join..."
+            
         );
         thread::sleep(Duration::from_millis(200));
 
         // --- STEP 2: Send multicast packet ---
         let sender = UdpSocket::bind((interface_ip, 0))?;
-        let dest_addr = format!("{}:{}", multicast_addr, multicast_port);
+        let dest_addr = format!("{multicast_addr}:{multicast_port}");
         let sent = sender.send_to(&test_payload, &dest_addr)?;
-        info!("[{}] Sent {} byte(s) to {}", test_name, sent, dest_addr);
+        info!("[{test_name}] Sent {sent} byte(s) to {dest_addr}");
         // The broadcast can be confirmed in a separate console where socat had been started prior to this program.
 
         // --- STEP 3: Retry read loop ---
@@ -943,7 +933,7 @@ mod tests {
 
             info!("[{}]  Received {} byte(s)", test_name, data.len());
             if !data.is_empty() {
-                info!("[{}]   Received data (ASCII):", test_name,);
+                info!("[{test_name}]   Received data (ASCII):",);
                 // for chunk in data.chunks(16) {
                 //     for &b in chunk {
                 //         print!("{}", if (0x20..=0x7E).contains(&b) { b as char } else { '.' });
@@ -954,7 +944,7 @@ mod tests {
                 for (i, chunk) in data.chunks(16).enumerate() {
                     print!("{:08x}  ", i * 16);
                     for byte in chunk.iter() {
-                        print!("{:02x} ", byte);
+                        print!("{byte:02x} ");
                     }
                     for _ in 0..(16 - chunk.len()) {
                         print!("   ");
@@ -966,7 +956,7 @@ mod tests {
                         } else {
                             '.'
                         };
-                        print!("{}", printable);
+                        print!("{printable}");
                     }
                     println!("|");
                 }
@@ -982,8 +972,8 @@ mod tests {
 
         assert!(
             received,
-            "[Test Reader] Did not receive expected UDP packet after {} attempts.",
-            max_attempts
+            "[Test Reader] Did not receive expected UDP packet after {max_attempts} attempts."
+            
         );
         Ok(())
     }
@@ -1014,7 +1004,6 @@ mod tests {
         let test_name = "Test 4";
 
         let _ = tracing_subscriber::fmt::try_init(); // Activate tracing
-        use crate::ComplexI16;
         use std::thread;
         use std::time::Duration;
 
@@ -1034,12 +1023,12 @@ mod tests {
         let multicast_port = foreign_port;
         // --- DIAGNOSTIC OUTPUT ---
         println!("\n--- Test Parameters ---");
-        println!("Interface Name  : {}", interface_name);
-        println!("Interface IP    : {}", interface_ip);
-        println!("Bind IP         : {}", bind_addr);
-        println!("Bind Port       : {}", bind_port);
-        println!("Multicast Addr  : {}", multicast_addr);
-        println!("Multicast Port  : {}", multicast_port);
+        println!("Interface Name  : {interface_name}");
+        println!("Interface IP    : {interface_ip}");
+        println!("Bind IP         : {bind_addr}");
+        println!("Bind Port       : {bind_port}");
+        println!("Multicast Addr  : {multicast_addr}");
+        println!("Multicast Port  : {multicast_port}");
         println!("------------------------\n");
 
         //let (mut src, rx) = UdpSourceBuilder::<u8>::new("0.0.0.0", 5000, "239.192.0.1", 5000)
@@ -1081,15 +1070,15 @@ mod tests {
         .unwrap_or_else(|e| panic!("❌ Failed to build UdpSourceBuilder: {e}"));
 
         info!(
-            "[{}] Waiting 1 second before starting receive loop...",
-            test_name
+            "[{test_name}] Waiting 1 second before starting receive loop..."
+            
         );
         thread::sleep(Duration::from_secs(1));
 
         let mut received_count = 0;
 
         for i in 0..20 {
-            info!("[{}] work cycle {}", test_name, i);
+            info!("[{test_name}] work cycle {i}");
             src.work().unwrap();
 
             if let Ok((reader, _)) = rx.read_buf() {
@@ -1103,7 +1092,7 @@ mod tests {
             }
 
             if received_count >= 5 {
-                info!("Received {} total bytes, exiting early", received_count);
+                info!("Received {received_count} total bytes, exiting early");
                 return Ok(());
             }
 

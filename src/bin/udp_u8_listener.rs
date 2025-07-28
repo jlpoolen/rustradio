@@ -18,11 +18,11 @@ fn main() -> anyhow::Result<()> {
     let multicast_port = 5003;
 
     println!("\n--- {test_name} ---");
-    println!("Interface IP    : {}", interface_ip);
-    println!("Bind Addr       : {}", bind_addr);
-    println!("Bind Port       : {}", bind_port);
-    println!("Multicast Addr  : {}", multicast_addr);
-    println!("Multicast Port  : {}", multicast_port);
+    println!("Interface IP    : {interface_ip}");
+    println!("Bind Addr       : {bind_addr}");
+    println!("Bind Port       : {bind_port}");
+    println!("Multicast Addr  : {multicast_addr}");
+    println!("Multicast Port  : {multicast_port}");
 
     let (mut src, rx): (_, ReadStream<u8>) = UdpSourceBuilder::<u8>::new(
         bind_addr, bind_port, multicast_addr, multicast_port,
@@ -54,6 +54,6 @@ fn main() -> anyhow::Result<()> {
         thread::sleep(Duration::from_millis(250));
     }
 
-    println!("[{test_name}] Total bytes received: {}", received_total);
+    println!("[{test_name}] Total bytes received: {received_total}");
     Ok(())
 }

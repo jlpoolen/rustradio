@@ -12,7 +12,7 @@ To run:
 
 */
 use anyhow::Result;
-use clap::{Arg, ArgAction, Command, Parser};
+use clap::{Parser};
 use log::warn;
 
 use std::borrow::Cow;
@@ -116,7 +116,7 @@ pub fn main() -> Result<()> {
     // Audio output flag and filename
     // Had been designed of "either audio or file, but not both"
     let (output_audio, file_name): (bool, Option<String>) = match &opt.filename {
-        Some(f) => {
+        Some(_f) => {
             // let path = std::path::Path::new(f);
             // if !path.exists() || path.is_file() {
             //     (false, Some(f.clone()))
@@ -140,13 +140,13 @@ pub fn main() -> Result<()> {
 
     // Display for verification
     println!("airspy udp decode");
-    println!("Using interface: {}", iface_addr);
+    println!("Using interface: {iface_addr}");
     println!(
-        "Multicast group: {}, Ports: local={}, multicast={}",
-        multicast_addr, port_local, port_multicast
+        "Multicast group: {multicast_addr}, Ports: local={port_local}, multicast={port_multicast}"
+        
     );
-    println!("Sample rate: {}, Audio rate: {}", samp_rate, audio_rate);
-    println!("Reuse addr: {}", reuse_addr);
+    println!("Sample rate: {samp_rate}, Audio rate: {audio_rate}");
+    println!("Reuse addr: {reuse_addr}");
 
 println!("Using fixed multicast address:port: 239.192.0.1:5000 -- TRANSMISSION MUST MATCH THIS");
     

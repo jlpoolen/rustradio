@@ -5,7 +5,8 @@ use log::warn;
 use rustradio::blocks::*;
 use rustradio::graph::GraphRunner;
 use rustradio::mtgraph::MTGraph;
-use rustradio::parse_verbosity;
+
+
 use rustradio::{Complex, Float, blockchain};
 use rustradio::{parse_frequency, parse_verbosity};
 
@@ -45,8 +46,6 @@ pub fn main() -> Result<()> {
         .init()?;
 
     let mut g = MTGraph::new();
-    let samp_rate = 2_500_000f32;
-    let audio_rate = 48000;
 
     let prev = blockchain![
         g,

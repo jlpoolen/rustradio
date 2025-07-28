@@ -21,7 +21,7 @@ then:
     
 */
 use anyhow::Result;
-use clap::{Arg, ArgAction, Command, Parser, ValueEnum};
+use clap::{Parser, ValueEnum};
 //old use log::warn;
 use log::{warn};
 
@@ -45,28 +45,28 @@ use rustradio::parse_verbosity;
 use rustradio::udp_source::UdpSourceBuilder;
 use rustradio::{ComplexU8, Float, blockchain};
 
-// additional for debugging ChatGTP suggested debug statement
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering;
+//DELETE additional for debugging ChatGTP suggested debug statement
+//DELETEuse std::sync::atomic::AtomicUsize;
+//DELETEuse std::sync::atomic::Ordering;
 
-use std::time::{SystemTime, UNIX_EPOCH};
-use chrono::Local;
+//use std::time::{SystemTime, UNIX_EPOCH};
+//use chrono::Local;
 
 
-fn now_string_epoch() -> String {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards");
-    format!(
-        "{}.{:06}",
-        now.as_secs(),
-        now.subsec_micros() // for microsecond precision (change to `nanos()` for nanoseconds)
-    )
-}
+// fn now_string_epoch() -> String {
+//     let now = SystemTime::now()
+//         .duration_since(UNIX_EPOCH)
+//         .expect("Time went backwards");
+//     format!(
+//         "{}.{:06}",
+//         now.as_secs(),
+//         now.subsec_micros() // for microsecond precision (change to `nanos()` for nanoseconds)
+//     )
+// }
 
-fn now_string() -> String {
-    Local::now().format("%Y-%m-%d %H:%M:%S%.6f").to_string()
-}
+// fn now_string() -> String {
+//     Local::now().format("%Y-%m-%d %H:%M:%S%.6f").to_string()
+// }
 
 #[derive(ValueEnum, Clone, Debug)]
 enum Format {
@@ -162,7 +162,7 @@ pub fn main() -> Result<()> {
 
     // Audio output flag and filename
     let (output_audio, file_name): (bool, Option<String>) = match &opt.filename {
-        Some(f) => {
+        Some(_f) => {
            if let Some(fname) = &opt.filename {
                 let output_path = Path::new(fname);
                 let metadata = fs::metadata(output_path)
@@ -202,13 +202,13 @@ pub fn main() -> Result<()> {
         // Display for verification
     println!("udp_decode");
     println!("Using fixed multicast address:port: 239.192.0.3:5003 -- TRANSMISSION MUST MATCH THIS");
-    println!("Using interface: {}", iface_addr);
+    println!("Using interface: {iface_addr}" );
     println!(
-        "Multicast group: {}, Ports: local={}, multicast={}",
-        multicast_addr, port_local, port_multicast
+        "Multicast group: {multicast_addr}, Ports: local={port_local}, multicast={port_multicast}"
+        
     );
-    println!("Sample rate: {}, Audio rate: {}", samp_rate, audio_rate);
-    println!("Reuse addr: {}", reuse_addr);
+    println!("Sample rate: {samp_rate}, Audio rate: {audio_rate}");
+    println!("Reuse addr: {reuse_addr}");
 
     let prev = blockchain![
         g,
